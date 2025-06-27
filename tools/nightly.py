@@ -430,12 +430,17 @@ class Venv:
         cmd = [str(python), *args]
         env = popen_kwargs.pop("env", None) or {}
         check = popen_kwargs.pop("check", True)
+        custom_env = {
+            "TMPDIR": "/cs/student/projects1/ml/2023/jsingh/tmp",
+            "TMP": "/cs/student/projects1/ml/2023/jsingh/tmp",
+            "TEMP": "/cs/student/projects1/ml/2023/jsingh/tmp",
+        }
         return subprocess.run(
             cmd,
             check=check,
             text=True,
             encoding="utf-8",
-            env={**self._env, **env},
+            env={**self._env, **env, **custom_env},
             **popen_kwargs,
         )
 
@@ -472,7 +477,7 @@ class Venv:
         """Run a uv command in the virtual environment."""
         if python is None:
             python = self.executable
-        cmd = [str(self.bindir / "uv"), *args]
+        cmd = [str(self.bindir / "uv"), *args] + ["--index-strategy", "unsafe-best-match"]
         env = popen_kwargs.pop("env", None) or {}
         check = popen_kwargs.pop("check", True)
         env["UV_PYTHON"] = str(python)
@@ -609,7 +614,7 @@ class Venv:
 
 
 def git(*args: str) -> list[str]:
-    return ["git", "-C", str(REPO_ROOT), *args]
+    return ["git", *args]
 
 
 @functools.lru_cache
@@ -732,7 +737,7 @@ def _ensure_commit(git_sha1: str) -> None:
         return
     # we don't have the commit, must fetch
     cmd = git("fetch", GITHUB_REMOTE_URL, git_sha1)
-    subprocess.check_call(cmd)
+    subprocess.check_call(cmd, cwd=str(REPO_ROOT))
 
 
 def _nightly_version(site_dir: Path) -> str:
@@ -750,8 +755,9 @@ def _nightly_version(site_dir: Path) -> str:
     print(f"Found released git version {git_version}")
     # now cross reference with nightly version
     _ensure_commit(git_version)
-    cmd = git("show", "--no-patch", "--format=%s", git_version)
+    cmd = ["git", "log", "-1", "--format=%H", git_version]
     stdout = subprocess.check_output(cmd, text=True, encoding="utf-8")
+
     m = SHA1_RE.search(stdout)
     if m is None:
         raise RuntimeError(
@@ -947,7 +953,7 @@ def parse_dependencies(
                 from packaging.metadata import Metadata
 
                 with open("METADATA", encoding="utf-8") as f:
-                    metadata = Metadata.from_email(f.read())
+                    metadata = Metadata.from_email(f.read(), validate=False)
                 for req in metadata.requires_dist:
                     if req.marker is None or req.marker.evaluate():
                         print(req)

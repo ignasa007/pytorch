@@ -4,7 +4,7 @@ SHELL        = /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 PYTHON      ?= $(shell command -v python3 || command -v python)
 PIP          = $(PYTHON) -m pip
-NIGHTLY_TOOL_OPTS := pull
+NIGHTLY_TOOL_OPTS := checkout
 
 .PHONY: all
 all:
